@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbf4ec">
+<meta name="robots" content="noindex, nofollow">
+<title>Unser Rätsel</title>
+<style>
+  :root {
+    --bg: #fbf4ec;
+    --card: #ffffff;
+    --ink: #2b1d1a;
+    --muted: #8a776f;
+    --line: #e7d9cc;
+    --accent: #d1343f;
+    --accent-soft: #fde2df;
+    --gold: #f2a03d;
+    --open: #fff1dc;
+    --locked: #efe6dc;
+    --ok: #2f8f5b;
+    --radius: 14px;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom));
+    min-height: 100dvh;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 0 16px; }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; margin: 0; }
+
+  /* Tabs */
+  nav {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 12px 0 10px; border-bottom: 1px solid var(--line);
+  }
+  nav .wrap { display: flex; gap: 6px; }
+  nav button {
+    flex: 1; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 999px; padding: 9px 6px; font: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer;
+  }
+  nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  nav button:disabled { color: var(--muted); background: var(--locked); cursor: default; }
+
+  header.page { padding: 20px 0 8px; }
+  header.page h1 { font-size: 28px; }
+  header.page .sub { color: var(--muted); margin-top: 2px; }
+  .intro { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+
+  /* Grid */
+  .board { margin: 16px 0 8px; }
+  .grid {
+    --size: min(100vw - 32px, 528px);
+    display: grid; gap: 2px; width: 100%;
+    grid-template-columns: repeat(var(--cols), 1fr);
+  }
+  .cell {
+    aspect-ratio: 1; position: relative; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: calc(var(--size) / var(--cols) * 0.5);
+    user-select: none;
+  }
+  .cell.empty { background: transparent; }
+  .cell.locked { background: var(--locked); }
+  .cell.open { background: var(--open); box-shadow: inset 0 0 0 1.5px var(--gold); cursor: pointer; }
+  .cell.solved { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+  .cell.fresh { animation: pulse 1.6s ease-in-out 3; }
+  .cell.mark::after {
+    content: ""; position: absolute; inset: 12%; border-radius: 50%;
+    border: 2px solid var(--accent); pointer-events: none;
+  }
+  .cell.mark.solved { color: var(--accent); }
+  .cell .num {
+    position: absolute; top: 1px; left: 2px; line-height: 1;
+    font-size: calc(var(--size) / var(--cols) * 0.26); font-weight: 600; color: var(--muted);
+  }
+  .cell.active { box-shadow: inset 0 0 0 2.5px var(--accent); }
+  @keyframes pulse { 50% { background: #ffd9a8; } }
+
+  /* Solution word */
+  .solution { display: flex; align-items: center; gap: 10px; margin: 14px 0 4px; flex-wrap: wrap; }
+  .solution .label { font-size: 14px; color: var(--muted); }
+  .sol-boxes { display: flex; gap: 5px; }
+  .sol-boxes span {
+    width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    border: 2px solid var(--accent); font-weight: 700; color: var(--accent); background: var(--card);
+  }
+  .progress { font-size: 14px; color: var(--muted); }
+
+  /* Clue list */
+  section.clues { margin-top: 18px; }
+  section.clues h3 { font-size: 18px; margin: 18px 0 8px; }
+  .clue {
+    display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 14px; margin-bottom: 8px; font: inherit; color: inherit; cursor: pointer;
+  }
+  .clue.open { border-color: var(--gold); }
+  .clue .n {
+    flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--open); color: var(--ink); font-weight: 700; font-size: 14px;
+  }
+  .clue.solved .n { background: var(--accent-soft); color: var(--accent); }
+  .clue .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .clue .ans { font-weight: 700; letter-spacing: 1px; color: var(--accent); margin-top: 2px; }
+  .badge {
+    display: inline-block; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+    border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px;
+  }
+  .locked-note {
+    color: var(--muted); font-size: 14px; padding: 12px 14px; border: 1px dashed var(--line);
+    border-radius: var(--radius);
+  }
+
+  /* Cards, buttons */
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; margin: 14px 0;
+  }
+  .btn {
+    display: inline-block; border: 0; border-radius: 999px; background: var(--accent); color: #fff;
+    font: inherit; font-weight: 700; padding: 12px 20px; cursor: pointer;
+  }
+  .btn.secondary { background: var(--locked); color: var(--ink); }
+  .btn:disabled { opacity: .5; }
+
+  /* Answer sheet */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(43, 29, 26, .45); z-index: 20;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 16px; overflow-y: auto;
+  }
+  .overlay[hidden] { display: none; }
+  .sheet {
+    width: 100%; max-width: 480px; background: var(--card); border-radius: 18px;
+    padding: 18px; box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
+  }
+  .sheet .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .sheet .top .meta { font-size: 13px; color: var(--muted); }
+  .close { border: 0; background: none; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; padding: 0 4px; }
+  .sheet .q { font-size: 18px; margin: 10px 0 14px; }
+  .letters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  .letters span {
+    width: 28px; height: 32px; border-radius: 6px; display: grid; place-items: center;
+    background: var(--open); font-weight: 700; border: 1px solid var(--line);
+  }
+  .letters span.known { color: var(--muted); }
+  .letters span.typed { background: var(--card); border-color: var(--gold); color: var(--ink); }
+  .letters span.over { background: var(--accent-soft); border-color: var(--accent); }
+  .answer-row { display: flex; gap: 8px; }
+  .answer-row input {
+    flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 11px 14px;
+    border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink);
+    text-transform: uppercase;
+  }
+  .answer-row input:focus { outline: none; border-color: var(--gold); }
+  .feedback { min-height: 22px; margin-top: 10px; font-size: 14px; }
+  .feedback.bad { color: var(--accent); }
+  .feedback.good { color: var(--ok); font-weight: 700; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .shake { animation: shake .4s; }
+  @keyframes shake { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
+
+  /* Celebration modal */
+  .modal { text-align: center; }
+  .modal .icon { font-size: 54px; line-height: 1; margin: 6px 0 10px; }
+  .modal h2 { font-size: 24px; margin-bottom: 8px; }
+  .modal p { margin: 0 0 18px; }
+  .gift-card { text-align: center; }
+  .gift-card .icon { font-size: 40px; }
+
+  /* Code page */
+  .code-input {
+    width: 100%; font: inherit; font-size: 22px; letter-spacing: 3px; text-align: center;
+    padding: 12px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg);
+    color: var(--ink); text-transform: uppercase; margin: 10px 0;
+  }
+  .parts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+  .parts b { color: var(--accent); letter-spacing: 1px; }
+  .slot {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius);
+    padding: 12px 14px; margin-bottom: 8px; font: inherit; color: inherit; cursor: pointer;
+  }
+  .slot .day { font-weight: 700; }
+  .slot .dates { font-size: 13px; color: var(--muted); }
+  .slot .radio {
+    flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line);
+  }
+  .slot.chosen { border-color: var(--accent); background: var(--accent-soft); }
+  .slot.chosen .radio { border: 7px solid var(--accent); }
+  .chosen-note { text-align: center; font-weight: 600; }
+
+  footer { margin-top: 28px; text-align: center; }
+  footer button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+
+  body.locked nav, body.locked main, body.locked footer { display: none; }
+  .gate { text-align: center; margin-top: 18vh; }
+  .gate .icon { font-size: 44px; }
+  .gate h1 { font-size: 26px; margin: 6px 0 4px; }
+
+  .confetti { position: fixed; top: -20px; z-index: 30; pointer-events: none; font-size: 22px; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity: .8; } }
+</style>
+</head>
+<body class="locked">
+<section class="wrap" id="gate" hidden>
+  <div class="card gate">
+    <div class="icon">🔐</div>
+    <h1>Für dich</h1>
+    <form id="gate-form" autocomplete="off">
+      <input class="code-input" id="gate-pw" inputmode="decimal" placeholder="TT.MM.JJJJ" enterkeyhint="go">
+      <button class="btn" style="width:100%">Öffnen</button>
+    </form>
+    <div class="hint">Dein Geburtstag (TT.MM.JJJJ)</div>
+    <div class="feedback" id="gate-fb"></div>
+  </div>
+</section>
+<nav><div class="wrap" id="tabs"></div></nav>
+<main class="wrap" id="main"></main>
+<div class="wrap"><footer><button id="reset" type="button">Fortschritt zurücksetzen</button></footer></div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+</div>
+
+<script>
+const BLOB = "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";
+const ITERATIONS = 600000;
+const PW_STORE = "kreuzwortraetsel-pw";
+
+// Only the digits count; "14.10.99" becomes "14101999".
+const normPw = (s) => {
+  const d = s.replace(/\D/g, "");
+  return d.length === 6 ? d.slice(0, 4) + "19" + d.slice(4) : d;
+};
+
+async function decrypt(pw) {
+  const buf = Uint8Array.from(atob(BLOB), (ch) => ch.charCodeAt(0));
+  const salt = buf.slice(0, 16), iv = buf.slice(16, 28), data = buf.slice(28);
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+(async () => {
+  const form = document.getElementById("gate-form");
+  const input = document.getElementById("gate-pw");
+  const fb = document.getElementById("gate-fb");
+  const unlock = async (pw, remember) => {
+    const DATA = await decrypt(pw);
+    if (remember) { try { localStorage.setItem(PW_STORE, pw); } catch (e) {} }
+    document.body.classList.remove("locked");
+    startApp(DATA);
+  };
+  let saved = null;
+  try { saved = localStorage.getItem(PW_STORE); } catch (e) {}
+  if (saved) {
+    try { await unlock(saved, false); return; } catch (e) {}
+  }
+  document.getElementById("gate").hidden = false;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("button");
+    btn.disabled = true; fb.className = "feedback"; fb.textContent = "Moment …";
+    try {
+      await unlock(normPw(input.value), true);
+      document.getElementById("gate").hidden = true;
+    } catch (err) {
+      fb.className = "feedback bad"; fb.textContent = "Das stimmt leider nicht.";
+      form.classList.remove("shake"); void form.offsetWidth; form.classList.add("shake");
+    }
+    btn.disabled = false;
+  });
+})();
+
+function startApp(DATA) {
+  const STORE = "kreuzwortraetsel-v1";
+  const DIGITS = { "4": "VIER", "12": "ZWOELF" };
+
+  // ---------- state ----------
+  const blank = () => ({ tab: 0, solved: [[], []], giftSeen: false, finalSeen: false, codeOk: false, slot: null });
+  let state = blank();
+  try { Object.assign(state, JSON.parse(localStorage.getItem(STORE)) || {}); } catch (e) {}
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+  let fresh = new Set();   // "p:n" of words unlocked by the last answer
+  let activeWord = null;
+
+  const normalize = (s) => {
+    const t = s.trim();
+    if (DIGITS[t]) return DIGITS[t];
+    return t.toUpperCase()
+      .replace(/Ä/g, "AE").replace(/Ö/g, "OE").replace(/Ü/g, "UE")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^A-Z]/g, "");
+  };
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ---------- puzzle model ----------
+  const models = DATA.puzzles.map((p) => {
+    const cells = new Map();
+    for (const w of p.words) {
+      w.cells = [...w.a].map((ch, i) => {
+        const r = w.d === "D" ? w.r + i : w.r, c = w.d === "D" ? w.c : w.c + i;
+        const k = r + "," + c;
+        if (!cells.has(k)) cells.set(k, { r, c, ch, words: [], nums: [] });
+        cells.get(k).words.push(w.n);
+        return k;
+      });
+      cells.get(w.cells[0]).nums.push(w.n);
+      if (w.mark !== null) cells.get(w.cells[w.mark]).mark = true;
+    }
+    const byNum = Object.fromEntries(p.words.map((w) => [w.n, w]));
+    return { ...p, cells, byNum };
+  });
+
+  const solvedSet = (pi) => new Set(state.solved[pi]);
+  const isSolved = (pi, n) => state.solved[pi].includes(n);
+  const isOpen = (pi, n) => {
+    if (isSolved(pi, n)) return false;
+    const m = models[pi];
+    if (n === m.start) return true;
+    const done = solvedSet(pi);
+    return m.byNum[n].cells.some((k) => m.cells.get(k).words.some((o) => o !== n && done.has(o)));
+  };
+  const complete = (pi) => state.solved[pi].length === models[pi].words.length;
+  const cellShown = (pi, k) => models[pi].cells.get(k).words.some((n) => isSolved(pi, n));
+  const solutionWord = (pi) => {
+    const m = models[pi];
+    return m.solution.map((n) => {
+      const w = m.byNum[n], k = w.cells[w.mark];
+      return cellShown(pi, k) ? m.cells.get(k).ch : null;
+    });
+  };
+
+  // ---------- tabs ----------
+  function renderTabs() {
+    const unlocked2 = complete(0);
+    const tabs = [
+      ["Rätsel 1", true],
+      [unlocked2 ? "Rätsel 2" : "🔒 Rätsel 2", unlocked2],
+      ["Code", true],
+    ];
+    if (state.tab === 1 && !unlocked2) state.tab = 0;
+    document.getElementById("tabs").innerHTML = tabs.map(([label, ok], i) =>
+      `<button type="button" data-tab="${i}" class="${state.tab === i ? "active" : ""}" ${ok ? "" : "disabled"}>${label}</button>`
+    ).join("");
+  }
+  document.getElementById("tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-tab]");
+    if (!b || b.disabled) return;
+    state.tab = +b.dataset.tab; fresh.clear(); save(); render(); window.scrollTo(0, 0);
+  });
+
+  // ---------- puzzle page ----------
+  function renderPuzzle(pi) {
+    const m = models[pi];
+    const done = state.solved[pi].length, total = m.words.length;
+    let cellsHtml = "";
+    for (let r = 0; r < m.rows; r++) {
+      for (let c = 0; c < m.cols; c++) {
+        const k = r + "," + c, cell = m.cells.get(k);
+        if (!cell) { cellsHtml += `<div class="cell empty"></div>`; continue; }
+        const shown = cellShown(pi, k);
+        const open = cell.words.some((n) => isOpen(pi, n));
+        const cls = ["cell", shown ? "solved" : open ? "open" : "locked"];
+        if (cell.mark) cls.push("mark");
+        if (cell.words.some((n) => fresh.has(pi + ":" + n)) && !shown) cls.push("fresh");
+        if (activeWord && activeWord.pi === pi && m.byNum[activeWord.n].cells.includes(k)) cls.push("active");
+        const num = cell.nums.length ? `<span class="num">${cell.nums.join("/")}</span>` : "";
+        cellsHtml += `<div class="${cls.join(" ")}" data-cell="${k}">${num}${shown ? cell.ch : ""}</div>`;
+      }
+    }
+
+    const open = m.words.filter((w) => isOpen(pi, w.n));
+    const solved = m.words.filter((w) => isSolved(pi, w.n));
+    const lockedCount = total - open.length - solved.length;
+    const dirLabel = (w) => (w.d === "A" ? "waagrecht" : "senkrecht") + ` · ${w.a.length} Buchstaben`;
+    const clue = (w, kind) => `
+      <button type="button" class="clue ${kind}" data-word="${w.n}">
+        <span class="n">${w.n}</span>
+        <span>
+          ${esc(w.q)}${fresh.has(pi + ":" + w.n) ? '<span class="badge">Neu</span>' : ""}
+          ${kind === "solved" ? `<div class="ans">${w.a}</div>` : `<div class="meta">${dirLabel(w)}</div>`}
+        </span>
+      </button>`;
+
+    const sol = solutionWord(pi);
+    const intro = pi === 0
+      ? "Starte bei Frage 1. Jede gelöste Antwort schaltet die Fragen frei, die sie im Gitter kreuzt. Manche löst du nur vor Ort, andere jederzeit."
+      : "Willkommen im Botanischen Garten! Wieder gilt: Jede Antwort öffnet die Fragen, die sie kreuzt.";
+
+    let giftHtml = "";
+    if (pi === 0 && complete(0)) {
+      giftHtml = `<div class="card gift-card"><div class="icon">🎁</div>
+        <h3>${esc(DATA.gift.title)}</h3><p>${esc(DATA.gift.text)}</p>
+        <button type="button" class="btn" data-goto="1">Weiter zu Rätsel 2</button></div>`;
+    }
+    if (pi === 1 && complete(1)) {
+      giftHtml = `<div class="card gift-card"><div class="icon">💃</div>
+        <h3>Geschafft!</h3><p>Beide Lösungswörter zusammen ergeben den Code. Ab zur Code-Seite!</p>
+        <button type="button" class="btn" data-goto="2">Zum Code</button></div>`;
+    }
+
+    return `
+      <header class="page">
+        <h1>${esc(m.title)}</h1>
+        <div class="sub">${esc(m.subtitle)}</div>
+        <p class="intro">${intro}</p>
+      </header>
+      ${giftHtml}
+      <div class="board"><div class="grid" style="--cols:${m.cols}">${cellsHtml}</div></div>
+      <div class="solution">
+        <span class="label">Lösungswort</span>
+        <span class="sol-boxes">${sol.map((ch) => `<span>${ch || ""}</span>`).join("")}</span>
+        <span class="progress">· ${done}/${total} gelöst</span>
+      </div>
+      <section class="clues">
+        ${open.length ? `<h3>Offene Fragen</h3>${open.map((w) => clue(w, "open")).join("")}` : ""}
+        ${lockedCount ? `<div class="locked-note">🔒 ${lockedCount} weitere ${lockedCount === 1 ? "Frage ist" : "Fragen sind"} noch verborgen.</div>` : ""}
+        ${solved.length ? `<h3>Gelöst</h3>${solved.map((w) => clue(w, "solved")).join("")}` : ""}
+      </section>`;
+  }
+
+  // ---------- code page ----------
+  function renderCode() {
+    const parts = [0, 1].map((pi) => {
+      const s = solutionWord(pi);
+      return s.map((ch) => ch || "?").join("");
+    });
+    let body;
+    if (!state.codeOk) {
+      body = `
+        <div class="card">
+          <p style="margin-top:0">Gib hier den Code ein. Er besteht aus den Lösungswörtern von Rätsel 1 und Rätsel 2 zusammen.</p>
+          <div class="parts"><span>Rätsel 1: <b>${parts[0]}</b></span><span>Rätsel 2: <b>${parts[1]}</b></span></div>
+          <form id="code-form" autocomplete="off">
+            <input class="code-input" id="code" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="CODE" enterkeyhint="go">
+            <button class="btn" style="width:100%">Entsperren</button>
+          </form>
+          <div class="feedback" id="code-fb"></div>
+        </div>`;
+    } else {
+      const chosen = state.slot;
+      body = `
+        <div class="card">
+          <h3 style="margin-bottom:6px">${esc(DATA.slotsTitle)}</h3>
+          <p style="margin:0">${esc(DATA.slotsIntro)}</p>
+        </div>
+        ${DATA.slots.map((s, i) => `
+          <button type="button" class="slot ${chosen === i ? "chosen" : ""}" data-slot="${i}">
+            <span class="radio"></span>
+            <span><div class="day">${esc(s.day)}, ${esc(s.time)}</div><div class="dates">${esc(s.dates)}</div></span>
+          </button>`).join("")}
+        ${chosen !== null ? `<div class="card chosen-note">Perfekt! Mach einen Screenshot und schick ihn mir. Ich buche uns ein. ❤️</div>` : ""}`;
+    }
+    return `
+      <header class="page"><h1>Code</h1><div class="sub">Das letzte Schloss</div></header>
+      ${body}`;
+  }
+
+  // ---------- render ----------
+  function render() {
+    renderTabs();
+    const main = document.getElementById("main");
+    main.innerHTML = state.tab === 2 ? renderCode() : renderPuzzle(state.tab);
+  }
+
+  document.getElementById("main").addEventListener("click", (e) => {
+    const pi = state.tab;
+    const go = e.target.closest("[data-goto]");
+    if (go) { state.tab = +go.dataset.goto; fresh.clear(); save(); render(); window.scrollTo(0, 0); return; }
+    const slot = e.target.closest("[data-slot]");
+    if (slot) { state.slot = +slot.dataset.slot; save(); render(); return; }
+    const clue = e.target.closest("[data-word]");
+    if (clue) { openSheet(pi, +clue.dataset.word); return; }
+    const cellEl = e.target.closest("[data-cell]");
+    if (cellEl && !cellEl.classList.contains("locked")) {
+      const cell = models[pi].cells.get(cellEl.dataset.cell);
+      const candidates = cell.words.filter((n) => isOpen(pi, n) || isSolved(pi, n));
+      const pref = candidates.filter((n) => isOpen(pi, n));
+      const list = pref.length ? pref : candidates;
+      // tapping the same crossing again switches between the two words
+      let n = list[0];
+      if (activeWord && activeWord.pi === pi && list.length > 1 && list.includes(activeWord.n)) {
+        n = list[(list.indexOf(activeWord.n) + 1) % list.length];
+      }
+      if (n) openSheet(pi, n);
+    }
+  });
+
+  document.getElementById("main").addEventListener("submit", (e) => {
+    if (e.target.id !== "code-form") return;
+    e.preventDefault();
+    const val = normalize(document.getElementById("code").value);
+    const fb = document.getElementById("code-fb");
+    if (val === DATA.code) {
+      state.codeOk = true; save(); confetti(["💃", "🕺", "❤️", "🎶"]); render();
+    } else {
+      fb.className = "feedback bad"; fb.textContent = "Das ist noch nicht der richtige Code.";
+      e.target.classList.remove("shake"); void e.target.offsetWidth; e.target.classList.add("shake");
+    }
+  });
+
+  // ---------- answer sheet ----------
+  const overlay = document.getElementById("overlay");
+  const sheet = document.getElementById("sheet");
+
+  function openSheet(pi, n) {
+    const m = models[pi], w = m.byNum[n];
+    activeWord = { pi, n };
+    const solved = isSolved(pi, n);
+    const known = w.cells.map((k) => (cellShown(pi, k) ? m.cells.get(k).ch : ""));
+    sheet.innerHTML = `
+      <div class="top">
+        <span class="meta">Frage ${n} · ${w.d === "A" ? "waagrecht" : "senkrecht"} · ${w.a.length} Buchstaben</span>
+        <button type="button" class="close" aria-label="Schliessen" data-close>×</button>
+      </div>
+      <div class="q">${esc(w.q)}</div>
+      <div class="letters" id="letters">${known.map((ch) => `<span class="${ch ? "known" : ""}">${ch}</span>`).join("")}</div>
+      ${solved
+        ? `<div class="feedback good">Gelöst: ${w.a}</div>`
+        : `<form class="answer-row" id="answer-form" autocomplete="off">
+             <input id="answer" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="Antwort">
+             <button class="btn">OK</button>
+           </form>
+           <div class="hint">Umlaute kannst du normal tippen, Leerzeichen sind egal.</div>
+           <div class="feedback" id="fb"></div>`}`;
+    overlay.hidden = false;
+    render();
+    const input = document.getElementById("answer");
+    if (input) {
+      input.addEventListener("input", () => updateLetters(known, normalize(input.value)));
+      input.focus({ preventScroll: true });  // synchronous, so iOS opens the keyboard
+    }
+  }
+
+  function updateLetters(known, typed) {
+    const box = document.getElementById("letters");
+    const n = Math.max(known.length, typed.length);
+    let html = "";
+    for (let i = 0; i < n; i++) {
+      if (i >= known.length) html += `<span class="over">${typed[i]}</span>`;
+      else if (typed[i]) html += `<span class="typed">${typed[i]}</span>`;
+      else html += `<span class="${known[i] ? "known" : ""}">${known[i]}</span>`;
+    }
+    box.innerHTML = html;
+  }
+
+  function closeSheet() {
+    overlay.hidden = true; activeWord = null; render();
+  }
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay || e.target.closest("[data-close]")) closeSheet();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !overlay.hidden) closeSheet(); });
+
+  sheet.addEventListener("submit", (e) => {
+    if (e.target.id !== "answer-form") return;
+    e.preventDefault();
+    const { pi, n } = activeWord;
+    const w = models[pi].byNum[n];
+    const val = normalize(document.getElementById("answer").value);
+    const fb = document.getElementById("fb");
+    if (!val) return;
+    if (val !== w.a) {
+      fb.className = "feedback bad";
+      fb.textContent = val.length !== w.a.length
+        ? `Leider nicht. Die Antwort hat ${w.a.length} Buchstaben.`
+        : "Leider nicht. Versuch es nochmal!";
+      sheet.classList.remove("shake"); void sheet.offsetWidth; sheet.classList.add("shake");
+      return;
+    }
+    const before = new Set(models[pi].words.filter((x) => isOpen(pi, x.n)).map((x) => x.n));
+    state.solved[pi].push(n);
+    fresh = new Set(models[pi].words.filter((x) => isOpen(pi, x.n) && !before.has(x.n)).map((x) => pi + ":" + x.n));
+    save();
+    document.activeElement && document.activeElement.blur();
+    if (complete(pi)) {
+      celebrate(pi);
+    } else {
+      fb.className = "feedback good";
+      fb.textContent = fresh.size ? `Richtig! ${fresh.size === 1 ? "Eine neue Frage ist" : fresh.size + " neue Fragen sind"} frei.` : "Richtig!";
+      confetti(["⭐", "✨"], 10);
+      setTimeout(closeSheet, 900);
+    }
+  });
+
+  function celebrate(pi) {
+    activeWord = null;
+    if (pi === 0) {
+      state.giftSeen = true;
+      sheet.innerHTML = `<div class="modal">
+        <div class="icon">🎁</div>
+        <h2>${esc(DATA.gift.title)}</h2>
+        <p>Lösungswort: <b style="color:var(--accent)">${solutionWord(0).join("")}</b></p>
+        <p>${esc(DATA.gift.text)}</p>
+        <button type="button" class="btn" data-goto-modal="1">Weiter zu Rätsel 2</button>
+      </div>`;
+      confetti(["🎁", "🎬", "❤️", "🍿"]);
+    } else {
+      state.finalSeen = true;
+      sheet.innerHTML = `<div class="modal">
+        <div class="icon">🌿</div>
+        <h2>Rätsel 2 gelöst!</h2>
+        <p>Lösungswort: <b style="color:var(--accent)">${solutionWord(1).join("")}</b></p>
+        <p>Setz beide Lösungswörter zusammen und gib sie auf der Code-Seite ein.</p>
+        <button type="button" class="btn" data-goto-modal="2">Zum Code</button>
+      </div>`;
+      confetti(["🌸", "🌿", "❤️", "✨"]);
+    }
+    save();
+    overlay.hidden = false;
+    render();
+  }
+  sheet.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-goto-modal]");
+    if (!b) return;
+    state.tab = +b.dataset.gotoModal; fresh.clear(); save();
+    overlay.hidden = true; render(); window.scrollTo(0, 0);
+  });
+
+  function confetti(emojis, count = 28) {
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement("div");
+      el.className = "confetti";
+      el.textContent = emojis[i % emojis.length];
+      el.style.left = Math.random() * 100 + "vw";
+      el.style.animationDuration = 1.8 + Math.random() * 1.8 + "s";
+      el.style.animationDelay = Math.random() * 0.6 + "s";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4500);
+    }
+  }
+
+  document.getElementById("reset").addEventListener("click", () => {
+    if (!confirm("Wirklich den ganzen Fortschritt löschen?")) return;
+    state = blank(); fresh.clear(); save(); render();
+  });
+
+  render();
+}
+</script>
+</body>
+</html>
